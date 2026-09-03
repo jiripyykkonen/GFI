@@ -1,854 +1,161 @@
-
 <!DOCTYPE html>
-<html lang="fi">
-
+<html lang="en">
 <head>
-
     <meta charset="UTF-8">
-
-    <title>Commodity Analytics</title>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GFI Global</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <style>
-
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 1200px;
-            margin: 40px auto;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-
-        h1 {
-            margin-bottom: 5px;
-        }
-
-        .subtitle {
-            color: #666;
-        }
-
-        .controls {
-            margin: 25px 0;
-        }
-
-        button {
-            padding: 10px 18px;
-            margin-right: 8px;
-            border: 1px solid #ccc;
-            background: white;
-            cursor: pointer;
-            border-radius: 6px;
-        }
-
-        button:hover {
-            background: #eee;
-        }
-
-        .chart-card {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-        }
-
-        .chart-container {
-            height: 500px;
-        }
-
-        .stats {
-            display: flex;
-            gap: 20px;
-            margin-top: 25px;
-            flex-wrap: wrap;
-        }
-
-        .stat {
-            background: white;
-            padding: 18px 22px;
-            border-radius: 8px;
-            min-width: 160px;
-        }
-
-        .stat-title {
-            color: #777;
-            font-size: 14px;
-        }
-
-        .stat-value {
-            font-size: 22px;
-            font-weight: bold;
-            margin-top: 5px;
-        }
-
-        #change {
-            font-size: 20px;
-            font-weight: bold;
-        }
-
-        .live {
-            margin-top: 20px;
-            color: #555;
-            font-size: 14px;
-        }
-
+        :root { --ink:#1a2433; --muted:#667085; --line:#e4e7ec; --surface:#fff; --page:#f4f6f8; --accent:#2356d8; }
+        * { box-sizing: border-box; }
+        body { margin:0; padding:36px 22px; background:var(--page); color:var(--ink); font-family:Arial,sans-serif; }
+        main { max-width:1400px; margin:0 auto; }
+        h1 { margin:0; font-size:30px; letter-spacing:-.5px; }
+        h2 { margin:0; font-size:20px; }
+        .subtitle,.card-copy,#dataStatus { color:var(--muted); }
+        .subtitle { margin:7px 0 0; }
+        .toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:28px 0 18px; padding:14px 16px; background:var(--surface); border:1px solid var(--line); border-radius:10px; }
+        button,select { font:inherit; border-radius:7px; border:1px solid #cfd4dc; background:#fff; padding:9px 12px; }
+        button { cursor:pointer; }
+        button:hover { background:#f2f4f7; }
+        button:disabled { cursor:not-allowed; opacity:.6; }
+        .primary-button { color:#fff; border-color:var(--accent); background:var(--accent); }
+        .primary-button:hover { background:#1748c5; }
+        .dashboard-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
+        .chart-card { min-width:0; padding:22px; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:0 2px 8px rgba(16,24,40,.04); }
+        .card-copy { margin:6px 0 0; font-size:14px; line-height:1.45; }
+        .control-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin:22px 0 16px; }
+        .series-picker { display:flex; flex-wrap:wrap; gap:8px 14px; }
+        .series-picker label { display:inline-flex; align-items:center; gap:6px; font-size:14px; white-space:nowrap; }
+        .series-picker input { accent-color:var(--accent); }
+        .unavailable { color:#98a2b3; }
+        .period-control { display:flex; align-items:center; gap:8px; font-size:14px; }
+        .chart-container { height:420px; position:relative; }
+        .empty-state { display:none; place-items:center; height:100%; padding:30px; text-align:center; color:var(--muted); border:1px dashed #cfd4dc; border-radius:8px; }
+        #dataStatus { font-size:14px; }
+        @media (max-width:850px) { body{padding:24px 14px;} .dashboard-grid{grid-template-columns:1fr;} .toolbar{align-items:flex-start;flex-direction:column;} .chart-container{height:360px;} }
     </style>
-
 </head>
-
-
 <body>
-
-
-<h1>Commodity Analytics</h1>
-
-<p class="subtitle">
-    Raaka-aineiden hintakehitys
-</p>
-
-
-<div class="chart-card">
-
-    <h2>Commodity performance index</h2>
-
-    <p class="subtitle">
-        Each commodity is indexed to 100 at its latest available observation.
-    </p>
-
-    <div class="chart-container">
-
-        <canvas id="comparisonChart"></canvas>
-
-    </div>
-
-</div>
-
-
-<div class="controls">
-
-    <button onclick="loadCommodity('gold')">
-        🟡 Gold
-    </button>
-
-    <button onclick="loadCommodity('oil')">
-        🛢️ Oil
-    </button>
-
-    <button onclick="loadCommodity('copper')">
-        🟠 Copper
-    </button>
-
-    <button onclick="loadCommodity('moex')">
-        MOEX (IMOEX)
-    </button>
-
-    <button onclick="importHistoricalData()" id="importButton">
-        Import historical data
-    </button>
-
-</div>
-
-
-<div class="controls">
-
-    <button onclick="setPeriod('1D')">
-        1 päivä
-    </button>
-
-    <button onclick="setPeriod('1W')">
-        1 viikko
-    </button>
-
-    <button onclick="setPeriod('1M')">
-        1 kuukausi
-    </button>
-
-    <button onclick="setPeriod('1Y')">
-        1 vuosi
-    </button>
-
-    <button onclick="setPeriod('5Y')">
-        5 vuotta
-    </button>
-
-    <button onclick="setPeriod('10Y')">
-        10 vuotta
-    </button>
-
-    <button onclick="setPeriod('ALL')">
-        Kaikki
-    </button>
-
-</div>
-
-
-<div class="chart-card">
-
-    <h2 id="chartTitle">
-        Selected commodity: GOLD
-    </h2>
-
-    <div class="chart-container">
-
-        <canvas id="priceChart"></canvas>
-
-    </div>
-
-</div>
-
-
-<div class="stats">
-
-
-    <div class="stat">
-
-        <div class="stat-title">
-            Nykyinen hinta
-        </div>
-
-        <div
-            class="stat-value"
-            id="latestPrice"
-        >
-            -
-        </div>
-
-    </div>
-
-
-    <div class="stat">
-
-        <div class="stat-title">
-            Muutos
-        </div>
-
-        <div
-            id="change"
-        >
-            -
-        </div>
-
-    </div>
-
-
-    <div class="stat">
-
-        <div class="stat-title">
-            Korkein
-        </div>
-
-        <div
-            class="stat-value"
-            id="highestPrice"
-        >
-            -
-        </div>
-
-    </div>
-
-
-    <div class="stat">
-
-        <div class="stat-title">
-            Alhaisin
-        </div>
-
-        <div
-            class="stat-value"
-            id="lowestPrice"
-        >
-            -
-        </div>
-
-    </div>
-
-
-</div>
-
-
-<div class="live">
-
-    <span id="dataStatus">Loading data...</span>
-
-    ● Gold, oil, copper, and MOEX are checked for new data every hour.
-
-    <span id="lastUpdate">
-        -
-    </span>
-
-</div>
-
-
+<main>
+    <header>
+        <h1>GFI Global</h1>
+        <p class="subtitle">Compare market indices and commodity performance side by side.</p>
+    </header>
+    <section class="toolbar" aria-label="Data controls">
+        <span id="dataStatus">Loading market data...</span>
+        <button class="primary-button" type="button" onclick="importHistoricalData()" id="importButton">Import historical data</button>
+    </section>
+    <section class="dashboard-grid">
+        <article class="chart-card">
+            <h2>Markets</h2>
+            <p class="card-copy">Select one or more indices. Each series is rebased to 100 at its latest value.</p>
+            <div class="control-row">
+                <div class="series-picker" aria-label="Market series">
+                    <label><input type="checkbox" checked onchange="toggleSeries('markets','moex',this.checked)"> MOEX (IMOEX)</label>
+                    <label class="unavailable" title="A NASDAQ data source has not been added to the API yet."><input type="checkbox" disabled> NASDAQ (coming soon)</label>
+                </div>
+                <label class="period-control">Period
+                    <select onchange="setPeriod('markets',this.value)">
+                        <option value="1M">1 month</option><option value="1Y">1 year</option><option value="5Y">5 years</option><option value="10Y">10 years</option><option value="ALL" selected>All data</option>
+                    </select>
+                </label>
+            </div>
+            <div class="chart-container"><canvas id="marketsChart"></canvas><div class="empty-state" id="marketsEmpty">Choose a market series with available data.</div></div>
+        </article>
+        <article class="chart-card">
+            <h2>Commodities</h2>
+            <p class="card-copy">Compare one commodity or several at the same time, using an independent period.</p>
+            <div class="control-row">
+                <div class="series-picker" aria-label="Commodity series">
+                    <label><input type="checkbox" checked onchange="toggleSeries('commodities','gold',this.checked)"> Gold</label>
+                    <label><input type="checkbox" checked onchange="toggleSeries('commodities','oil',this.checked)"> WTI oil</label>
+                    <label><input type="checkbox" checked onchange="toggleSeries('commodities','copper',this.checked)"> Copper</label>
+                </div>
+                <label class="period-control">Period
+                    <select onchange="setPeriod('commodities',this.value)">
+                        <option value="1M">1 month</option><option value="1Y">1 year</option><option value="5Y">5 years</option><option value="10Y">10 years</option><option value="ALL" selected>All data</option>
+                    </select>
+                </label>
+            </div>
+            <div class="chart-container"><canvas id="commoditiesChart"></canvas><div class="empty-state" id="commoditiesEmpty">Choose a commodity series with available data.</div></div>
+        </article>
+    </section>
+</main>
 <script>
-
-
-let chart = null;
-
-let comparisonChart = null;
-
-let currentCommodity = "gold";
-
-let currentPeriod = "ALL";
-
-let allData = [];
-
-let comparisonData = {
-    gold: [],
-    oil: [],
-    copper: [],
-    moex: []
+const SERIES = {
+    moex:{label:"MOEX (IMOEX)",color:"#4b8f5a"}, gold:{label:"Gold",color:"#d4a72c"},
+    oil:{label:"WTI oil",color:"#2f6fdb"}, copper:{label:"Copper",color:"#b9652b"}
 };
+const groups = {
+    markets:{chart:null,period:"ALL",selected:new Set(["moex"])},
+    commodities:{chart:null,period:"ALL",selected:new Set(["gold","oil","copper"])}
+};
+let seriesData = {moex:[],gold:[],oil:[],copper:[]};
 
+function setPeriod(groupName,period) { groups[groupName].period=period; updateGroupChart(groupName); }
+function toggleSeries(groupName,seriesName,selected) { const selection=groups[groupName].selected; selected ? selection.add(seriesName) : selection.delete(seriesName); updateGroupChart(groupName); }
 
-
-async function loadCommodity(commodity) {
-
-    currentCommodity = commodity;
-
-    try {
-
-        const response = await fetch(
-            `/api/prices/${commodity}`
-        );
-
-        if (!response.ok) {
-            throw new Error(`API returned ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        allData = result.data;
-
-        const statusElement = document.getElementById("dataStatus");
-        statusElement.textContent = allData.length
-            ? `${allData.length} ${commodity} records loaded.`
-            : `No ${commodity} history found. Click “Import historical data”.`;
-
-        updateChart();
-
-    }
-
-    catch (error) {
-
-        console.error(
-            "Datan haku epäonnistui:",
-            error
-        );
-
-        document.getElementById("dataStatus").textContent =
-            "Cannot reach the backend. Please try again shortly.";
-
-    }
-
+function filterByPeriod(rows,period) {
+    if (period === "ALL") return rows;
+    const cutoff=new Date(); const amount=Number(period.slice(0,-1)); const unit=period.slice(-1);
+    if (unit === "M") cutoff.setMonth(cutoff.getMonth()-amount);
+    if (unit === "Y") cutoff.setFullYear(cutoff.getFullYear()-amount);
+    return rows.filter(row => new Date(row.timestamp) >= cutoff);
 }
 
-
-async function loadComparisonData() {
-
-    const commodities = ["gold", "oil", "copper", "moex"];
-
-    try {
-        const responses = await Promise.all(
-            commodities.map(commodity =>
-                fetch(`/api/prices/${commodity}`)
-            )
-        );
-
-        if (responses.some(response => !response.ok)) {
-            throw new Error("Could not load one or more commodity series.");
-        }
-
-        const results = await Promise.all(
-            responses.map(response => response.json())
-        );
-
-        comparisonData = Object.fromEntries(
-            commodities.map((commodity, index) => [
-                commodity,
-                results[index].data || []
-            ])
-        );
-
-        updateComparisonChart();
-    }
-    catch (error) {
-        console.error("Comparison data load failed:", error);
-    }
-
+function buildDatasets(groupName) {
+    const group=groups[groupName];
+    return [...group.selected].map(name => {
+        const rows=filterByPeriod(seriesData[name] || [],group.period);
+        if (!rows.length) return null;
+        const latest=Number(rows[rows.length-1].price);
+        if (!Number.isFinite(latest) || latest === 0) return null;
+        return {...SERIES[name],values:rows.map(row => [row.timestamp,(Number(row.price)/latest)*100])};
+    }).filter(Boolean);
 }
 
+function updateGroupChart(groupName) {
+    const group=groups[groupName]; const series=buildDatasets(groupName);
+    const canvas=document.getElementById(`${groupName}Chart`); const empty=document.getElementById(`${groupName}Empty`);
+    if (group.chart) { group.chart.destroy(); group.chart=null; }
+    if (!series.length) { canvas.style.display="none"; empty.style.display="grid"; return; }
+    canvas.style.display="block"; empty.style.display="none";
+    const labels=[...new Set(series.flatMap(item => item.values.map(([date]) => date)))].sort();
+    const datasets=series.map(({values,...item}) => {
+        const byDate=new Map(values);
+        return {label:item.label,data:labels.map(date => byDate.get(date) ?? null),borderColor:item.color,backgroundColor:item.color,borderWidth:2,tension:.2,pointRadius:0,pointHoverRadius:4,spanGaps:true};
+    });
+    group.chart=new Chart(canvas.getContext("2d"),{type:"line",data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:"index"},plugins:{legend:{position:"bottom"}},scales:{x:{ticks:{maxTicksLimit:8}},y:{title:{display:true,text:"Index (latest value = 100)"},beginAtZero:false}}}});
+}
+
+async function loadAllData() {
+    const names=Object.keys(SERIES); const status=document.getElementById("dataStatus");
+    try {
+        const responses=await Promise.all(names.map(name => fetch(`/api/prices/${name}`)));
+        if (responses.some(response => !response.ok)) throw new Error("Could not load all series.");
+        const results=await Promise.all(responses.map(response => response.json()));
+        seriesData=Object.fromEntries(names.map((name,index) => [name,results[index].data || []]));
+        const total=Object.values(seriesData).reduce((sum,rows) => sum+rows.length,0);
+        status.textContent=total ? `${total.toLocaleString()} observations loaded.` : "No historical data found. Import data after your API limit resets.";
+        updateGroupChart("markets"); updateGroupChart("commodities");
+    } catch (error) { console.error("Data load failed:",error); status.textContent="Cannot reach the backend. Please try again shortly."; }
+}
 
 async function importHistoricalData() {
-
-    const button = document.getElementById("importButton");
-    const statusElement = document.getElementById("dataStatus");
-
-    button.disabled = true;
-    statusElement.textContent = "Importing historical data from Alpha Vantage...";
-
+    const button=document.getElementById("importButton"); const status=document.getElementById("dataStatus");
+    button.disabled=true; status.textContent="Importing historical data. This can take a moment...";
     try {
-        const response = await fetch(
-            "/api/import/all",
-            { method: "POST" }
-        );
-        const result = await response.json();
-
-        if (!response.ok) {
-            throw new Error(result.detail || `API returned ${response.status}`);
-        }
-
-        const failures = Object.entries(result)
-            .filter(([, value]) => value.status !== "ok")
-            .map(([commodity]) => commodity);
-
-        statusElement.textContent = failures.length
-            ? `Could not import: ${failures.join(", ")}. Check the backend terminal.`
-            : "Import complete. Loading chart...";
-
-        await Promise.all([
-            loadCommodity(currentCommodity),
-            loadComparisonData()
-        ]);
-    }
-    catch (error) {
-        console.error("Historical import failed:", error);
-        statusElement.textContent =
-            "Import failed. Check your API key and the backend terminal.";
-    }
-    finally {
-        button.disabled = false;
-    }
-
+        const response=await fetch("/api/import/all",{method:"POST"}); const result=await response.json();
+        if (!response.ok) throw new Error(result.detail || "Import failed.");
+        const failed=Object.entries(result).filter(([,outcome]) => outcome.status !== "ok").map(([name]) => name);
+        status.textContent=failed.length ? `Could not import: ${failed.join(", ")}.` : "Import complete. Loading charts...";
+        await loadAllData();
+    } catch (error) { console.error("Historical import failed:",error); status.textContent="Import failed. Check the API key and API request limit."; }
+    finally { button.disabled=false; }
 }
 
-
-
-function setPeriod(period) {
-
-    currentPeriod = period;
-
-    updateChart();
-    updateComparisonChart();
-
-}
-
-
-
-function filterData(data = allData) {
-
-    if (currentPeriod === "ALL") {
-        return data;
-    }
-
-    const now = new Date();
-    const cutoff = new Date(now);
-
-
-    if (currentPeriod === "1D") {
-
-        cutoff.setDate(
-            now.getDate() - 1
-        );
-
-    }
-
-
-    if (currentPeriod === "1W") {
-
-        cutoff.setDate(
-            now.getDate() - 7
-        );
-
-    }
-
-
-    if (currentPeriod === "1M") {
-
-        cutoff.setMonth(
-            now.getMonth() - 1
-        );
-
-    }
-
-
-    if (currentPeriod === "1Y") {
-
-        cutoff.setFullYear(
-            now.getFullYear() - 1
-        );
-
-    }
-
-
-    if (currentPeriod === "5Y") {
-
-        cutoff.setFullYear(
-            now.getFullYear() - 5
-        );
-
-    }
-
-
-    if (currentPeriod === "10Y") {
-
-        cutoff.setFullYear(
-            now.getFullYear() - 10
-        );
-
-    }
-
-
-    return data.filter(item => {
-
-        return new Date(
-            item.timestamp
-        ) >= cutoff;
-
-    });
-
-}
-
-
-function updateComparisonChart() {
-
-    const series = [
-        { commodity: "gold", label: "Gold", color: "#d4a72c" },
-        { commodity: "oil", label: "Oil", color: "#2f6fdb" },
-        { commodity: "copper", label: "Copper", color: "#b9652b" },
-        { commodity: "moex", label: "MOEX (IMOEX)", color: "#4b8f5a" }
-    ].map(({ commodity, label, color }) => {
-
-        const rows = filterData(comparisonData[commodity]);
-        if (rows.length === 0) {
-            return null;
-        }
-
-        const latestPrice = Number(rows[rows.length - 1].price);
-
-        return {
-            label,
-            values: rows.map(item => [
-                item.timestamp,
-                (Number(item.price) / latestPrice) * 100
-            ]),
-            borderColor: color,
-            backgroundColor: color,
-            borderWidth: 2,
-            tension: 0.2,
-            pointRadius: 0,
-            pointHoverRadius: 4,
-            showLine: true,
-            // The three feeds have different calendars/frequencies; bridge missing dates.
-            spanGaps: true
-        };
-    }).filter(Boolean);
-
-    const labels = [...new Set(
-        series.flatMap(item => item.values.map(([timestamp]) => timestamp))
-    )].sort();
-
-    const datasets = series.map(({ values, ...dataset }) => {
-        const valuesByDate = new Map(values);
-        return {
-            ...dataset,
-            data: labels.map(timestamp => valuesByDate.get(timestamp) ?? null)
-        };
-    });
-
-    if (comparisonChart) {
-        comparisonChart.destroy();
-        comparisonChart = null;
-    }
-
-    if (datasets.length === 0) {
-        return;
-    }
-
-    const ctx = document
-        .getElementById("comparisonChart")
-        .getContext("2d");
-
-    comparisonChart = new Chart(ctx, {
-        type: "line",
-        data: { labels, datasets },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { intersect: false, mode: "index" },
-            scales: {
-                x: {
-                    type: "category",
-                    ticks: { maxTicksLimit: 12 }
-                },
-                y: {
-                    title: { display: true, text: "Index (latest value = 100)" },
-                    beginAtZero: false
-                }
-            }
-        }
-    });
-
-}
-
-
-
-function updateChart() {
-
-    const data =
-        filterData(allData);
-
-
-    if (data.length === 0) {
-
-        if (chart) {
-            chart.destroy();
-            chart = null;
-        }
-
-        document.getElementById("latestPrice").textContent = "-";
-        document.getElementById("change").textContent = "-";
-        document.getElementById("highestPrice").textContent = "-";
-        document.getElementById("lowestPrice").textContent = "-";
-
-        return;
-
-    }
-
-
-    const labels =
-        data.map(
-            item => item.timestamp
-        );
-
-
-    const prices =
-        data.map(
-            item => Number(item.price)
-        );
-
-
-    const latest =
-        prices[prices.length - 1];
-
-
-    const previous =
-        prices.length > 1
-            ? prices[prices.length - 2]
-            : latest;
-
-
-    const change =
-        previous !== 0
-            ? ((latest - previous) / previous) * 100
-            : 0;
-
-
-    const highest =
-        Math.max(...prices);
-
-
-    const lowest =
-        Math.min(...prices);
-
-
-
-    document.getElementById(
-        "latestPrice"
-    ).textContent =
-        "$" +
-        latest.toLocaleString(
-            undefined,
-            {
-                maximumFractionDigits: 2
-            }
-        );
-
-
-
-    const changeElement =
-        document.getElementById(
-            "change"
-        );
-
-
-    const sign =
-        change >= 0
-            ? "+"
-            : "";
-
-
-    changeElement.textContent =
-        sign +
-        change.toFixed(2) +
-        "%";
-
-
-
-    document.getElementById(
-        "highestPrice"
-    ).textContent =
-        "$" +
-        highest.toLocaleString(
-            undefined,
-            {
-                maximumFractionDigits: 2
-            }
-        );
-
-
-
-    document.getElementById(
-        "lowestPrice"
-    ).textContent =
-        "$" +
-        lowest.toLocaleString(
-            undefined,
-            {
-                maximumFractionDigits: 2
-            }
-        );
-
-
-
-    document.getElementById(
-        "chartTitle"
-    ).textContent =
-        currentCommodity.toUpperCase();
-
-
-
-    const ctx =
-        document
-        .getElementById(
-            "priceChart"
-        )
-        .getContext("2d");
-
-
-
-    if (chart) {
-
-        chart.destroy();
-
-    }
-
-
-
-    chart = new Chart(
-        ctx,
-        {
-
-            type: "line",
-
-            data: {
-
-                labels: labels,
-
-                datasets: [{
-
-                    label:
-                        currentCommodity
-                        .toUpperCase(),
-
-                    data: prices,
-
-                    borderWidth: 2,
-
-                    tension: 0.2,
-
-                    pointRadius: 0
-
-                }]
-
-            },
-
-
-            options: {
-
-                responsive: true,
-
-                maintainAspectRatio: false,
-
-                interaction: {
-
-                    intersect: false,
-
-                    mode: "index"
-
-                },
-
-
-                scales: {
-
-                    x: {
-
-                        ticks: {
-
-                            maxTicksLimit: 12
-
-                        }
-
-                    },
-
-
-                    y: {
-
-                        beginAtZero: false
-
-                    }
-
-                }
-
-            }
-
-        }
-    );
-
-
-
-    document.getElementById(
-        "lastUpdate"
-    ).textContent =
-        " | " +
-        new Date().toLocaleTimeString();
-
-}
-
-
-
-async function refreshGold() {
-
-    if (currentCommodity !== "gold") {
-
-        return;
-
-    }
-
-
-    await loadCommodity("gold");
-
-}
-
-
-
-// Ensimmäinen lataus
-
-loadCommodity("gold");
-loadComparisonData();
-
-
-
-// Päivitetään Gold 5 sekunnin välein
-
-setInterval(
-    refreshGold,
-    5000
-);
-
-
+loadAllData();
 </script>
-
-
 </body>
-
 </html>
