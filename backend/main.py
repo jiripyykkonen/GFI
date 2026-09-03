@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -15,12 +16,21 @@ from services.commodities import (
     save_commodity_history,
     refresh_commodity_history,
     refresh_moex_if_market_open,
+    import_all_history,
     save_moex_history,
 )
 
 
 scheduler = BackgroundScheduler()
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+logger = logging.getLogger(__name__)
+
+
+def initial_import():
+    """Import data for a newly-created cloud database and record the outcome."""
+    results = import_all_history()
+    logger.warning("Initial commodity import completed: %s", results)
+    return results
 
 
 @asynccontextmanager
@@ -52,7 +62,7 @@ async def lifespan(app: FastAPI):
     # re-importing history on every subsequent restart.
     if not has_prices():
         scheduler.add_job(
-            refresh_commodity_history,
+            initial_import,
             id="initial-commodity-import",
             replace_existing=True,
         )
@@ -224,10 +234,7 @@ def import_copper():
 @app.post("/api/import/all")
 def import_all_commodity_history():
     """Import gold, oil, and copper one at a time from Alpha Vantage."""
-    return {
-        commodity: save_commodity_history(commodity)
-        for commodity in ("gold", "oil", "copper", "moex")
-    }
+    return import_all_history()
 
 
 @app.post("/api/import/moex")

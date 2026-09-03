@@ -147,6 +147,16 @@ def refresh_commodity_history():
     return results
 
 
+def import_all_history():
+    """Populate every chart's history, including MOEX, for a new database."""
+    results = refresh_commodity_history()
+    try:
+        results["moex"] = save_moex_history()
+    except Exception as error:
+        results["moex"] = {"status": "error", "message": str(error)}
+    return results
+
+
 def _save_price_rows(commodity_name, rows):
     """Save date/price rows while leaving already-imported observations intact."""
     conn = get_connection()
