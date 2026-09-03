@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from database import get_connection, setup_database
 from services.commodities import (
@@ -18,6 +20,7 @@ from services.commodities import (
 
 
 scheduler = BackgroundScheduler()
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
 
 @asynccontextmanager
@@ -80,9 +83,8 @@ setup_database()
 
 @app.get("/")
 def home():
-    return {
-        "message": "Commodity Analytics API is running"
-    }
+    """Serve the browser app from the same service as the API."""
+    return FileResponse(FRONTEND_DIR / "index.html")
 
 
 @app.get("/api/status")
