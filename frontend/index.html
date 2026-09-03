@@ -107,6 +107,23 @@
 </p>
 
 
+<div class="chart-card">
+
+    <h2>Commodity performance index</h2>
+
+    <p class="subtitle">
+        Each commodity is indexed to 100 at its latest available observation.
+    </p>
+
+    <div class="chart-container">
+
+        <canvas id="comparisonChart"></canvas>
+
+    </div>
+
+</div>
+
+
 <div class="controls">
 
     <button onclick="loadCommodity('gold')">
@@ -119,6 +136,14 @@
 
     <button onclick="loadCommodity('copper')">
         🟠 Copper
+    </button>
+
+    <button onclick="loadCommodity('moex')">
+        MOEX (IMOEX)
+    </button>
+
+    <button onclick="importHistoricalData()" id="importButton">
+        Import historical data
     </button>
 
 </div>
@@ -160,7 +185,7 @@
 <div class="chart-card">
 
     <h2 id="chartTitle">
-        GOLD
+        Selected commodity: GOLD
     </h2>
 
     <div class="chart-container">
@@ -243,7 +268,9 @@
 
 <div class="live">
 
-    ● Data päivitetään automaattisesti Goldille
+    <span id="dataStatus">Loading data...</span>
+
+    ● Gold, oil, copper, and MOEX are checked for new data every hour.
 
     <span id="lastUpdate">
         -
@@ -257,11 +284,20 @@
 
 let chart = null;
 
+let comparisonChart = null;
+
 let currentCommodity = "gold";
 
 let currentPeriod = "ALL";
 
 let allData = [];
+
+let comparisonData = {
+    gold: [],
+    oil: [],
+    copper: [],
+    moex: []
+};
 
 
 
@@ -275,9 +311,18 @@ async function loadCommodity(commodity) {
             `http://127.0.0.1:8000/api/prices/${commodity}`
         );
 
+        if (!response.ok) {
+            throw new Error(`API returned ${response.status}`);
+        }
+
         const result = await response.json();
 
         allData = result.data;
+
+        const statusElement = document.getElementById("dataStatus");
+        statusElement.textContent = allData.length
+            ? `${allData.length} ${commodity} records loaded.`
+            : `No ${commodity} history found. Click “Import historical data”.`;
 
         updateChart();
 
@@ -290,6 +335,88 @@ async function loadCommodity(commodity) {
             error
         );
 
+        document.getElementById("dataStatus").textContent =
+            "Cannot reach the backend. Start it at http://127.0.0.1:8000.";
+
+    }
+
+}
+
+
+async function loadComparisonData() {
+
+    const commodities = ["gold", "oil", "copper", "moex"];
+
+    try {
+        const responses = await Promise.all(
+            commodities.map(commodity =>
+                fetch(`http://127.0.0.1:8000/api/prices/${commodity}`)
+            )
+        );
+
+        if (responses.some(response => !response.ok)) {
+            throw new Error("Could not load one or more commodity series.");
+        }
+
+        const results = await Promise.all(
+            responses.map(response => response.json())
+        );
+
+        comparisonData = Object.fromEntries(
+            commodities.map((commodity, index) => [
+                commodity,
+                results[index].data || []
+            ])
+        );
+
+        updateComparisonChart();
+    }
+    catch (error) {
+        console.error("Comparison data load failed:", error);
+    }
+
+}
+
+
+async function importHistoricalData() {
+
+    const button = document.getElementById("importButton");
+    const statusElement = document.getElementById("dataStatus");
+
+    button.disabled = true;
+    statusElement.textContent = "Importing historical data from Alpha Vantage...";
+
+    try {
+        const response = await fetch(
+            "http://127.0.0.1:8000/api/import/all",
+            { method: "POST" }
+        );
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.detail || `API returned ${response.status}`);
+        }
+
+        const failures = Object.entries(result)
+            .filter(([, value]) => value.status !== "ok")
+            .map(([commodity]) => commodity);
+
+        statusElement.textContent = failures.length
+            ? `Could not import: ${failures.join(", ")}. Check the backend terminal.`
+            : "Import complete. Loading chart...";
+
+        await Promise.all([
+            loadCommodity(currentCommodity),
+            loadComparisonData()
+        ]);
+    }
+    catch (error) {
+        console.error("Historical import failed:", error);
+        statusElement.textContent =
+            "Import failed. Check your API key and the backend terminal.";
+    }
+    finally {
+        button.disabled = false;
     }
 
 }
@@ -301,12 +428,13 @@ function setPeriod(period) {
     currentPeriod = period;
 
     updateChart();
+    updateComparisonChart();
 
 }
 
 
 
-function filterData(data) {
+function filterData(data = allData) {
 
     if (currentPeriod === "ALL") {
         return data;
@@ -381,6 +509,88 @@ function filterData(data) {
 }
 
 
+function updateComparisonChart() {
+
+    const series = [
+        { commodity: "gold", label: "Gold", color: "#d4a72c" },
+        { commodity: "oil", label: "Oil", color: "#2f6fdb" },
+        { commodity: "copper", label: "Copper", color: "#b9652b" },
+        { commodity: "moex", label: "MOEX (IMOEX)", color: "#4b8f5a" }
+    ].map(({ commodity, label, color }) => {
+
+        const rows = filterData(comparisonData[commodity]);
+        if (rows.length === 0) {
+            return null;
+        }
+
+        const latestPrice = Number(rows[rows.length - 1].price);
+
+        return {
+            label,
+            values: rows.map(item => [
+                item.timestamp,
+                (Number(item.price) / latestPrice) * 100
+            ]),
+            borderColor: color,
+            backgroundColor: color,
+            borderWidth: 2,
+            tension: 0.2,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            showLine: true,
+            // The three feeds have different calendars/frequencies; bridge missing dates.
+            spanGaps: true
+        };
+    }).filter(Boolean);
+
+    const labels = [...new Set(
+        series.flatMap(item => item.values.map(([timestamp]) => timestamp))
+    )].sort();
+
+    const datasets = series.map(({ values, ...dataset }) => {
+        const valuesByDate = new Map(values);
+        return {
+            ...dataset,
+            data: labels.map(timestamp => valuesByDate.get(timestamp) ?? null)
+        };
+    });
+
+    if (comparisonChart) {
+        comparisonChart.destroy();
+        comparisonChart = null;
+    }
+
+    if (datasets.length === 0) {
+        return;
+    }
+
+    const ctx = document
+        .getElementById("comparisonChart")
+        .getContext("2d");
+
+    comparisonChart = new Chart(ctx, {
+        type: "line",
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false, mode: "index" },
+            scales: {
+                x: {
+                    type: "category",
+                    ticks: { maxTicksLimit: 12 }
+                },
+                y: {
+                    title: { display: true, text: "Index (latest value = 100)" },
+                    beginAtZero: false
+                }
+            }
+        }
+    });
+
+}
+
+
 
 function updateChart() {
 
@@ -389,6 +599,16 @@ function updateChart() {
 
 
     if (data.length === 0) {
+
+        if (chart) {
+            chart.destroy();
+            chart = null;
+        }
+
+        document.getElementById("latestPrice").textContent = "-";
+        document.getElementById("change").textContent = "-";
+        document.getElementById("highestPrice").textContent = "-";
+        document.getElementById("lowestPrice").textContent = "-";
 
         return;
 
@@ -614,6 +834,7 @@ async function refreshGold() {
 // Ensimmäinen lataus
 
 loadCommodity("gold");
+loadComparisonData();
 
 
 
