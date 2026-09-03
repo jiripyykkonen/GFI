@@ -24,6 +24,13 @@
         .dashboard-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
         .chart-card { min-width:0; padding:22px; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:0 2px 8px rgba(16,24,40,.04); }
         .card-copy { margin:6px 0 0; font-size:14px; line-height:1.45; }
+        .news-section { margin-top:20px; padding:22px; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:0 2px 8px rgba(16,24,40,.04); }
+        .news-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:16px; }
+        .news-item { display:block; padding:16px; border:1px solid var(--line); border-radius:10px; color:var(--ink); text-decoration:none; background:#fff; transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+        .news-item:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(16,24,40,.08); border-color:#cfd4dc; }
+        .news-source { display:block; margin-bottom:7px; font-size:12px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.04em; }
+        .news-title { display:block; font-size:16px; font-weight:700; line-height:1.35; }
+        .news-description { display:block; margin-top:7px; font-size:13px; line-height:1.45; color:var(--muted); }
         .control-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin:22px 0 16px; }
         .series-picker { display:flex; flex-wrap:wrap; gap:8px 14px; }
         .series-picker label { display:inline-flex; align-items:center; gap:6px; font-size:14px; white-space:nowrap; }
@@ -33,7 +40,8 @@
         .chart-container { height:420px; position:relative; }
         .empty-state { display:none; place-items:center; height:100%; padding:30px; text-align:center; color:var(--muted); border:1px dashed #cfd4dc; border-radius:8px; }
         #dataStatus { font-size:14px; }
-        @media (max-width:850px) { body{padding:24px 14px;} .dashboard-grid{grid-template-columns:1fr;} .toolbar{align-items:flex-start;flex-direction:column;} .chart-container{height:360px;} }
+        @media (max-width:850px) { body{padding:24px 14px;} .dashboard-grid{grid-template-columns:1fr;} .news-list{grid-template-columns:1fr 1fr;} .toolbar{align-items:flex-start;flex-direction:column;} .chart-container{height:360px;} }
+        @media (max-width:560px) { .news-list{grid-template-columns:1fr;} }
     </style>
 </head>
 <body>
@@ -42,6 +50,43 @@
         <h1>GFI Global</h1>
         <p class="subtitle">Compare market indices and commodity performance side by side.</p>
     </header>
+
+    <section class="news-section" aria-labelledby="news-heading">
+        <h2 id="news-heading">Articles &amp; News</h2>
+        <p class="card-copy">Latest market, economic and commodity news from selected sources.</p>
+        <div class="news-list">
+            <a class="news-item" href="https://www.reuters.com/markets/" target="_blank" rel="noopener noreferrer">
+                <span class="news-source">Reuters</span>
+                <span class="news-title">Markets</span>
+                <span class="news-description">Global financial markets, currencies, bonds and economic developments.</span>
+            </a>
+            <a class="news-item" href="https://www.ft.com/markets" target="_blank" rel="noopener noreferrer">
+                <span class="news-source">Financial Times</span>
+                <span class="news-title">Markets</span>
+                <span class="news-description">Business and financial-market analysis, companies and macroeconomics.</span>
+            </a>
+            <a class="news-item" href="https://www.bloomberg.com/markets" target="_blank" rel="noopener noreferrer">
+                <span class="news-source">Bloomberg</span>
+                <span class="news-title">Markets</span>
+                <span class="news-description">Market news, data and analysis across global asset classes.</span>
+            </a>
+            <a class="news-item" href="https://www.cnbc.com/markets/" target="_blank" rel="noopener noreferrer">
+                <span class="news-source">CNBC</span>
+                <span class="news-title">Markets</span>
+                <span class="news-description">Breaking financial news, market updates and investing coverage.</span>
+            </a>
+            <a class="news-item" href="https://www.kitco.com/" target="_blank" rel="noopener noreferrer">
+                <span class="news-source">Kitco</span>
+                <span class="news-title">Gold &amp; Precious Metals</span>
+                <span class="news-description">Gold prices, precious-metals news and market commentary.</span>
+            </a>
+            <a class="news-item" href="https://oilprice.com/" target="_blank" rel="noopener noreferrer">
+                <span class="news-source">OilPrice.com</span>
+                <span class="news-title">Oil &amp; Energy</span>
+                <span class="news-description">Crude oil, energy markets and commodity industry news.</span>
+            </a>
+        </div>
+    </section>
     <section class="toolbar" aria-label="Data controls">
         <span id="dataStatus">Loading market data...</span>
         <button class="primary-button" type="button" onclick="importHistoricalData()" id="importButton">Import historical data</button>
