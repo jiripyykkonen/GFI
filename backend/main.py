@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from database import get_connection, setup_database
+from database import get_connection, has_prices, setup_database
 from services.commodities import (
     get_prices_for_commodity,
     save_spot_commodity,
@@ -25,12 +25,15 @@ FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Start one hourly refresh job for the lifetime of this API process."""
+    """Start scheduled commodity refreshes for the lifetime of this API process."""
     scheduler.add_job(
         refresh_commodity_history,
-        trigger="interval",
-        hours=1,
-        id="commodity-hourly-refresh",
+        trigger="cron",
+        day_of_week="mon-fri",
+        hour=20,
+        minute=0,
+        timezone="UTC",
+        id="commodity-daily-refresh",
         replace_existing=True,
         max_instances=1,
         coalesce=True,
@@ -45,6 +48,14 @@ async def lifespan(app: FastAPI):
         coalesce=True,
     )
     scheduler.start()
+    # A newly-created Render Postgres database is empty. Seed it once without
+    # re-importing history on every subsequent restart.
+    if not has_prices():
+        scheduler.add_job(
+            refresh_commodity_history,
+            id="initial-commodity-import",
+            replace_existing=True,
+        )
     try:
         yield
     finally:
